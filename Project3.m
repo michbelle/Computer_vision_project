@@ -63,6 +63,7 @@ augmentedTestSet = augmentedImageDatastore(imageSize, imds_test);%, 'ColorPrepro
 %% Learn
 
 options = trainingOptions('sgdm', ...
+    'MaxEpochs',100, ...
     'MiniBatchSize',32,...
     'Verbose',false, ...
     'Plots','training-progress', ...
@@ -71,9 +72,11 @@ net = trainNetwork(totdata,layers,options);
 
 %% Test
 predicted = classify(net,augmentedTestSet);
-%plotconfusion(imds_test.Labels,predicted);
+plotconfusion(imds_test.Labels,predicted);
 accuracy = sum(predicted == imds_test.Labels)/numel(imds_test.Labels)
 
+
+tets=imds_test.Labels
 %[XTest,~,YTest] = digitTest4DArrayData;
 %YPred = predict(net,XTest);
 %predictionError = YTest - YPred;
