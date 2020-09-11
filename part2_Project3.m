@@ -28,44 +28,18 @@ imageFolder_test='data/test';
 imds = imageDatastore(imageFolder_train, 'LabelSource', 'foldernames', 'IncludeSubfolders',true);
 imds_test = imageDatastore(imageFolder_test, 'LabelSource', 'foldernames', 'IncludeSubfolders',true);
 
-%% plot test
-%daisy = find(imds.Labels == 'Bedroom', 1);
-%figure
-%imshow(readimage(imds,daisy))
-
-%% verifica la distribuzione delle foto
-%tbl = countEachLabel(imds)
-
-%% se il set non è uniforme run this
-% Determine the smallest amount of images in a category
-%minSetCount = min(tbl{:,2}); 
-
-% Limit the number of images to reduce the time it takes
-% run this example.
-%maxNumImages = 100;
-%minSetCount = min(maxNumImages,minSetCount);
-
-% Use splitEachLabel method to trim the set.
-%imds = splitEachLabel(imds, minSetCount, 'randomize');
-
-% Notice that each set now has exactly the same number of images.
-%countEachLabel(imds)
-
-%% Use net
-%test_ima=imresize(test,[64 64])
-%imageSize=net.Layers(1).InputSize;%output dovrebbe essere [64 64]
-
 %spilt data random in train and validation set
 [trainingset, validationset]=splitEachLabel(imds, 0.85, 'randomize');
 
 %rescale images for learning
-imageSize=[64 64 1];%imageSize=net.Layers(1).InputSize;%output dovrebbe essere [64 64]
+imageSize=[64 64 1];
 
 imageAugmenter = imageDataAugmenter( ...
     'RandXReflection',1, ...
-    'RandYReflection',1);%'RandRotation',[-5,5]), ...
-    %'RandXTranslation',[-3 3], ...
-    %'RandYTranslation',[-3 3]);
+    'RandYReflection',1, ...
+    'RandRotation',[-5,5], ...
+    'RandXTranslation',[-3 3], ...
+    'RandYTranslation',[-3 3]);
 
 totdata = augmentedImageDatastore(imageSize, imds,'DataAugmentation',imageAugmenter);%, 'ColorPreprocessing', 'gray2rgb');
 
@@ -81,8 +55,8 @@ options = trainingOptions('adam', ...
     'MiniBatchSize',128,...
     'Verbose',false, ...
     'Plots','training-progress', ...
-    'ValidationData',{augmentedTrainingSet,augmentedValidationSet});
-net = trainNetwork(totdata,layers,options);
+    'ValidationData',augmentedValidationSet);
+net = trainNetwork(augmentedTrainingSet,layers,options);
 
 %% Test
 predicted = classify(net,augmentedTestSet)
@@ -93,6 +67,7 @@ predicted(2985)
 
 %% train for ensemble of networks
 %train 5 to 10 reti e poi fare la media
+trainig = 'training layers 1'
 layers1 = [
     imageInputLayer([64 64 1],"Name","imageinput")
     convolution2dLayer([3 3],8,"Name","conv_1","Padding","same", "WeightsInitializer",'narrow-normal')
@@ -111,12 +86,14 @@ layers1 = [
     classificationLayer("Name","classoutput")];
 
 options1 = trainingOptions('adam', ...
-    'MaxEpochs',50, ...
+    'MaxEpochs',100, ...
     'MiniBatchSize',128,...
-    'ValidationData',{augmentedTrainingSet,augmentedValidationSet});
-net1 = trainNetwork(totdata,layers1,options1);
+    'ValidationPatience',10,...
+    'ValidationData',augmentedValidationSet);
+net1 = trainNetwork(augmentedTrainingSet,layers1,options1);
 predicted1 = classify(net1,augmentedTestSet);
 
+trainig = 'training layers 2'
 layers2 = [
     imageInputLayer([64 64 1],"Name","imageinput")
     convolution2dLayer([3 3],8,"Name","conv_1","Padding","same", "WeightsInitializer",'narrow-normal')
@@ -138,10 +115,11 @@ layers2 = [
 options2 = trainingOptions('adam', ...
     'MaxEpochs',50, ...
     'MiniBatchSize',128,...
-    'ValidationData',{augmentedTrainingSet,augmentedValidationSet});
-net2 = trainNetwork(totdata,layers2,options2);
+    'ValidationData',augmentedValidationSet);
+net2 = trainNetwork(augmentedTrainingSet,layers2,options2);
 predicted2 = classify(net2,augmentedTestSet);
 
+trainig = 'training layers 3'
 layers3 = [
     imageInputLayer([64 64 1],"Name","imageinput")
     convolution2dLayer([3 3],8,"Name","conv_1","Padding","same", "WeightsInitializer",'narrow-normal')
@@ -163,10 +141,12 @@ layers3 = [
 options3 = trainingOptions('adam', ...
     'MaxEpochs',100, ...
     'MiniBatchSize',64,...
-    'ValidationData',{augmentedTrainingSet,augmentedValidationSet});
-net3 = trainNetwork(totdata,layers3,options3);
+    'ValidationPatience',10,...
+    'ValidationData',augmentedValidationSet);
+net3 = trainNetwork(augmentedTrainingSet,layers3,options3);
 predicted3 = classify(net3,augmentedTestSet);
 
+trainig = 'training layers 4'
 layers4 = [
     imageInputLayer([64 64 1],"Name","imageinput")
     convolution2dLayer([3 3],8,"Name","conv_1","Padding","same", "WeightsInitializer",'narrow-normal')
@@ -192,10 +172,12 @@ layers4 = [
 options4 = trainingOptions('adam', ...
     'MaxEpochs',50, ...
     'MiniBatchSize',64,...
-    'ValidationData',{augmentedTrainingSet,augmentedValidationSet});
-net4 = trainNetwork(totdata,layers4,options4);
+    'ValidationPatience',10,...
+    'ValidationData',augmentedValidationSet);
+net4 = trainNetwork(augmentedTrainingSet,layers4,options4);
 predicted4 = classify(net4,augmentedTestSet);
 
+trainig = 'training layers 5'
 layers5 = [
     imageInputLayer([64 64 1],"Name","imageinput")
     convolution2dLayer([3 3],8,"Name","conv_1","Padding","same", "WeightsInitializer",'narrow-normal')
@@ -214,7 +196,7 @@ layers5 = [
     batchNormalizationLayer
     reluLayer("Name","relu_4")
     maxPooling2dLayer([2 2],"Name","maxpool_4","Padding","same","Stride",[2 2])
-    convolution2dLayer([11 11],32,"Name","conv_5","Padding","same", "WeightsInitializer",'narrow-normal')
+    convolution2dLayer([11 11],64,"Name","conv_5","Padding","same", "WeightsInitializer",'narrow-normal')
     batchNormalizationLayer
     reluLayer("Name","relu_5")
     dropoutLayer
@@ -225,12 +207,12 @@ layers5 = [
 options5 = trainingOptions('adam', ...
     'MaxEpochs',50, ...
     'MiniBatchSize',128,...
-    'ValidationData',{augmentedTrainingSet,augmentedValidationSet});
-net5 = trainNetwork(totdata,layers5,options5);
+    'ValidationPatience',10,...
+    'ValidationData',augmentedValidationSet);
+net5 = trainNetwork(augmentedTrainingSet,layers5,options5);
 predicted5 = classify(net5,augmentedTestSet);
 
 %% ensemble of networks 
-
 a=predicted1(1);
 b=predicted1(1);
 c=predicted1(1);
