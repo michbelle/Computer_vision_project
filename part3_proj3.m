@@ -4,7 +4,7 @@
 clear
 %% Analize net
 net = alexnet;
-%analyzeNetwork(net) 
+analyzeNetwork(net) 
 inputSize = net.Layers(1).InputSize;
 
 %% Load data
